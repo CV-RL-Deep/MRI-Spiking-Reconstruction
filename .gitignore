@@ -1,0 +1,6 @@
+__pycache__/
+ablation_results/
+checkpoints/
+data/
+test_checkpoints/
+project-dump.md

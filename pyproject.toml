@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spirec"
+version = "0.1.0"
+description = "Spiking & Continuous 2.5D Autoregressive Brain MRI Reconstruction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Research Execution Group", email = "valv@niuitmo.ru" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps."
+]
+dependencies = [
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "numpy>=1.24.0,<2.0.0",
+    "scipy>=1.11.0",
+    "pandas>=2.1.0",
+    "nibabel>=5.1.0",
+    "scikit-image>=0.21.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "tqdm>=4.66.0",
+    "psutil>=5.9.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0"
+]
+snn = [
+    "spikingjelly>=0.0.0.0.14"
+]
+
+[tool.setuptools.packages.find]
+include = ["spirec*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
