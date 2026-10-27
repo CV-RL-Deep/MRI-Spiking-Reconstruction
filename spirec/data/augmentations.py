@@ -1,7 +1,9 @@
 import random
+
 from typing import Dict, List, Tuple
 
 import numpy as np
+
 from scipy.ndimage import gaussian_filter, rotate, zoom
 
 from spirec.configs.config import AugmentationConfig
@@ -89,7 +91,9 @@ class AugmentationLogic:
             slice_data = stack[i]
 
             if config.prob_blur > 0.0 and random.random() < config.prob_blur:
-                slice_data = gaussian_filter(slice_data, sigma=config.blur_sigma)
+                slice_data = gaussian_filter(
+                    slice_data, sigma=config.blur_sigma
+                )
                 flags["blur_applied"] = True
 
             if config.prob_noise > 0.0 and random.random() < config.prob_noise:
@@ -138,7 +142,9 @@ class AugmentationLogic:
         input_seg = seg_resized[:n_ctx]
         target_seg = seg_resized[n_ctx]
 
-        target_tumor_mask = np.isin(target_seg, config.brats_labels_for_void).astype(np.float32)
+        target_tumor_mask = np.isin(
+            target_seg, config.brats_labels_for_void
+        ).astype(np.float32)
         if not np.any(target_tumor_mask):
             return input_stack, np.zeros((h_in, w_in), dtype=np.float32), False
 
@@ -153,4 +159,3 @@ class AugmentationLogic:
         output_stack = input_stack.copy()
         output_stack[is_tumor_input] = 0.0
         return output_stack, target_tumor_mask, True
-

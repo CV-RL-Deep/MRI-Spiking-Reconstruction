@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
+
 import numpy as np
+
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 
@@ -32,7 +34,9 @@ def calc_focal_frequency_error(
     return float(ffl)
 
 
-def calc_gradient_sharpness_error(gt_slice: np.ndarray, pred_slice: np.ndarray) -> float:
+def calc_gradient_sharpness_error(
+    gt_slice: np.ndarray, pred_slice: np.ndarray
+) -> float:
     """Computes mean absolute error between spatial image gradients (finite differences)."""
     dy_gt, dx_gt = np.gradient(gt_slice)
     dy_pr, dx_pr = np.gradient(pred_slice)
@@ -66,7 +70,11 @@ def calculate_step_metrics(
 
         mae_val = float(np.mean(np.abs(gt_slice - pr_slice)))
         mse_val = float(np.mean(np.square(gt_slice - pr_slice)))
-        psnr_val = float(psnr(gt_slice, pr_slice, data_range=1.0)) if mse_val > 0 else 100.0
+        psnr_val = (
+            float(psnr(gt_slice, pr_slice, data_range=1.0))
+            if mse_val > 0
+            else 100.0
+        )
         ssim_val = float(ssim(gt_slice, pr_slice, data_range=1.0))
         grad_err = calc_gradient_sharpness_error(gt_slice, pr_slice)
         ffl_err = calc_focal_frequency_error(gt_slice, pr_slice, alpha=1.0)
@@ -102,7 +110,11 @@ def calculate_region_metrics(
 
     mae = float(np.mean(np.abs(true_region - pred_region)))
     mse = float(np.mean(np.square(true_region - pred_region)))
-    psnr_val = float(psnr(true_region, pred_region, data_range=1.0)) if mse > 0 else 100.0
+    psnr_val = (
+        float(psnr(true_region, pred_region, data_range=1.0))
+        if mse > 0
+        else 100.0
+    )
 
     # Calculate SSIM on region bounding box
     rows, cols = np.where(mask_bool)
@@ -117,4 +129,3 @@ def calculate_region_metrics(
         ssim_val = float(ssim(bbox_true, bbox_pred, data_range=1.0))
 
     return {"mae": mae, "mse": mse, "psnr": psnr_val, "ssim": ssim_val}
-

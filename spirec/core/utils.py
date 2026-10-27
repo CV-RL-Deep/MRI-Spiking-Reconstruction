@@ -2,10 +2,8 @@ import csv
 import logging
 import os
 import random
-import subprocess
 import sys
 import time
-from typing import Optional
 
 import numpy as np
 import psutil
@@ -45,7 +43,9 @@ def set_global_seeds(seed: int = 42, deterministic: bool = False) -> None:
         torch.backends.cudnn.benchmark = False
         logger.info(f"Reproducibility seed={seed} (Strict Determinism Enabled)")
     else:
-        logger.info(f"Reproducibility seed={seed} (Benchmark Performance Enabled)")
+        logger.info(
+            f"Reproducibility seed={seed} (Benchmark Performance Enabled)"
+        )
 
 
 class PipelineTimer:
@@ -72,14 +72,18 @@ class InferenceProfiler:
 
     def __init__(self, model_identifier: str, destination_dir: str):
         self.model_name = model_identifier
-        self.output_csv = os.path.join(destination_dir, "inference_performance.csv")
+        self.output_csv = os.path.join(
+            destination_dir, "inference_performance.csv"
+        )
         self.clock_start: float = 0.0
         os.makedirs(destination_dir, exist_ok=True)
 
         if not os.path.exists(self.output_csv):
             with open(self.output_csv, "w", newline="") as stream:
                 writer = csv.writer(stream)
-                writer.writerow(["Model", "Volume_ID", "Time_Seconds", "Peak_VRAM_GB"])
+                writer.writerow(
+                    ["Model", "Volume_ID", "Time_Seconds", "Peak_VRAM_GB"]
+                )
 
     def start(self) -> None:
         if torch.cuda.is_available():
@@ -94,7 +98,14 @@ class InferenceProfiler:
 
         with open(self.output_csv, "a", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow([self.model_name, volume_id, f"{elapsed:.3f}", f"{peak_vram:.3f}"])
+            writer.writerow(
+                [
+                    self.model_name,
+                    volume_id,
+                    f"{elapsed:.3f}",
+                    f"{peak_vram:.3f}",
+                ]
+            )
 
         logger.info(
             f"[{self.model_name}] Vol: {volume_id} | Elapsed: {elapsed:.2f}s | Peak VRAM: {peak_vram:.2f} GB"
@@ -109,7 +120,9 @@ class MemoryTelemetry:
         if not os.path.exists(self.log_path):
             with open(self.log_path, "w", newline="") as stream:
                 writer = csv.writer(stream)
-                writer.writerow(["Event", "Index", "System_RAM_GB", "GPU_VRAM_GB"])
+                writer.writerow(
+                    ["Event", "Index", "System_RAM_GB", "GPU_VRAM_GB"]
+                )
 
     def log(self, event_label: str, iteration_idx: int) -> None:
         ram_gb = psutil.virtual_memory().used / (1024**3)
@@ -119,5 +132,6 @@ class MemoryTelemetry:
 
         with open(self.log_path, "a", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow([event_label, iteration_idx, f"{ram_gb:.2f}", f"{vram_gb:.2f}"])
-
+            writer.writerow(
+                [event_label, iteration_idx, f"{ram_gb:.2f}", f"{vram_gb:.2f}"]
+            )

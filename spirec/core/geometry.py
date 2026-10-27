@@ -1,7 +1,9 @@
 from typing import Tuple
+
 import numpy as np
 import torch
 import torch.nn.functional as F
+
 from scipy.ndimage import find_objects
 
 
@@ -17,7 +19,7 @@ class GeometryOps:
     ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         """
         Determines the bounding box centered around brain matter along projection axes.
-        
+
         Args:
             volume_np: 3D NumPy array (Z, H, W).
             target_spatial_shape: (H_target, W_target).
@@ -45,7 +47,10 @@ class GeometryOps:
         if w_start + tw > max_w:
             w_start = max(0, max_w - tw)
 
-        return (int(h_start), int(h_start + th)), (int(w_start), int(w_start + tw))
+        return (int(h_start), int(h_start + th)), (
+            int(w_start),
+            int(w_start + tw),
+        )
 
     @staticmethod
     def normalize_volume(tensor: torch.Tensor) -> torch.Tensor:
@@ -60,11 +65,11 @@ class GeometryOps:
     def resize_and_pad(
         tensor: torch.Tensor,
         target_size: Tuple[int, int],
-        mode: str = "bicubic"
+        mode: str = "bicubic",
     ) -> Tuple[torch.Tensor, float, torch.Tensor]:
         """
         Letterboxes tensor to target spatial resolution while preserving aspect ratio.
-        
+
         Args:
             tensor: (C, H, W) or (B, C, H, W) tensor.
             target_size: (H_target, W_target).
@@ -96,7 +101,12 @@ class GeometryOps:
         pad_right = pad_w - pad_left
 
         # F.pad format: (left, right, top, bottom)
-        padded = F.pad(resized, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=0.0)
+        padded = F.pad(
+            resized,
+            (pad_left, pad_right, pad_top, pad_bottom),
+            mode="constant",
+            value=0.0,
+        )
 
         offsets = torch.tensor([pad_top, pad_left], dtype=torch.long)
         if not is_batched:
@@ -110,11 +120,11 @@ class GeometryOps:
         original_shape: Tuple[int, int],
         scale: float,
         pads: torch.Tensor,
-        mode: str = "bicubic"
+        mode: str = "bicubic",
     ) -> torch.Tensor:
         """
         Inverts letterbox transformation: crops padding and resamples to raw coordinates.
-        
+
         Args:
             padded_tensor: (C, H_pad, W_pad) or (B, C, H_pad, W_pad).
             original_shape: (H_raw, W_raw).
@@ -139,11 +149,13 @@ class GeometryOps:
 
         align_corners = False if mode in ["bilinear", "bicubic"] else None
         restored = F.interpolate(
-            cropped, size=(orig_h, orig_w), mode=mode, align_corners=align_corners
+            cropped,
+            size=(orig_h, orig_w),
+            mode=mode,
+            align_corners=align_corners,
         )
 
         if not is_batched:
             restored = restored.squeeze(0)
 
         return restored
-

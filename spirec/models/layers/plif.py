@@ -1,5 +1,7 @@
 import math
+
 from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 
@@ -28,16 +30,24 @@ class PLIF(nn.Module):
 
         # 4D parameterization matches single-step (B, C, H, W) state tensor
         raw_beta = math.log(initial_beta / (1.0 - initial_beta))
-        self.w_beta = nn.Parameter(torch.full((1, channels, 1, 1), raw_beta, dtype=torch.float32))
+        self.w_beta = nn.Parameter(
+            torch.full((1, channels, 1, 1), raw_beta, dtype=torch.float32)
+        )
 
     def forward(
-        self, input_current_seq: torch.Tensor, u_init: Optional[torch.Tensor] = None
+        self,
+        input_current_seq: torch.Tensor,
+        u_init: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         t_sim, b, c, h, w = input_current_seq.shape
         beta = torch.sigmoid(self.w_beta)  # Shape: (1, C, 1, 1)
 
         u = (
-            torch.zeros((b, c, h, w), device=input_current_seq.device, dtype=input_current_seq.dtype)
+            torch.zeros(
+                (b, c, h, w),
+                device=input_current_seq.device,
+                dtype=input_current_seq.dtype,
+            )
             if u_init is None
             else u_init
         )
@@ -45,7 +55,7 @@ class PLIF(nn.Module):
 
         for tau in range(t_sim):
             current = input_current_seq[tau]  # (B, C, H, W)
-            u = beta * u + current            # (B, C, H, W)
+            u = beta * u + current  # (B, C, H, W)
             s = surrogate_atan(u - self.v_th, alpha=self.surrogate_alpha)
 
             if self.reset_mode == "subtract":
@@ -59,4 +69,3 @@ class PLIF(nn.Module):
 
         # Output shape strictly preserved: (T_sim, B, C, H, W)
         return torch.stack(spikes, dim=0), u
-

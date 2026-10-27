@@ -1,4 +1,5 @@
 import torch.nn as nn
+
 from spirec.configs.config import Config
 from spirec.models.dense_unet import DenseUNet2p5D
 from spirec.models.losses import (
@@ -52,4 +53,3 @@ __all__ = [
     "SpectralLoss",
     "FocalFrequencyLoss",
 ]
-

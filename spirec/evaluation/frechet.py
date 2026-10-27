@@ -1,12 +1,14 @@
 import glob
 import os
+
 from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import linalg
 import torch
 import torchvision.models.video as video_models
+
+from scipy import linalg
 from tqdm import tqdm
 
 from spirec.configs.config import Config
@@ -21,28 +23,38 @@ class FrechetEvaluator:
 
     def __init__(self, config: Config, device: torch.device = None):
         self.results_dir = config.data.results_dir
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         logger.info(f"Initializing 3D Feature Extractors on {self.device}...")
 
         # 1. FVD Extractor: MViT-v1-B trained on Kinetics-400
         try:
-            self.mvit = video_models.mvit_v1_b(weights=video_models.MViT_V1_B_Weights.DEFAULT)
+            self.mvit = video_models.mvit_v1_b(
+                weights=video_models.MViT_V1_B_Weights.DEFAULT
+            )
             self.mvit.head = torch.nn.Identity()
             self.mvit.eval().to(self.device)
         except Exception as e:
-            logger.warning(f"Could not download MViT weights: {e}. FVD will use uninitialized extractor.")
+            logger.warning(
+                f"Could not download MViT weights: {e}. FVD will use uninitialized extractor."
+            )
             self.mvit = video_models.mvit_v1_b()
             self.mvit.head = torch.nn.Identity()
             self.mvit.eval().to(self.device)
 
         # 2. 3D-FID Extractor: 3D ResNet-18 (R3D-18)
         try:
-            self.r3d = video_models.r3d_18(weights=video_models.R3D_18_Weights.DEFAULT)
+            self.r3d = video_models.r3d_18(
+                weights=video_models.R3D_18_Weights.DEFAULT
+            )
             self.r3d.fc = torch.nn.Identity()
             self.r3d.eval().to(self.device)
         except Exception as e:
-            logger.warning(f"Could not download R3D weights: {e}. 3D-FID will use uninitialized extractor.")
+            logger.warning(
+                f"Could not download R3D weights: {e}. 3D-FID will use uninitialized extractor."
+            )
             self.r3d = video_models.r3d_18()
             self.r3d.fc = torch.nn.Identity()
             self.r3d.eval().to(self.device)
@@ -68,7 +80,9 @@ class FrechetEvaluator:
             # Edge pad if smaller than chunk depth
             if vol_chunk.shape[0] < chunk_depth:
                 pad_z = chunk_depth - vol_chunk.shape[0]
-                vol_chunk = np.pad(vol_chunk, ((0, pad_z), (0, 0), (0, 0)), mode="edge")
+                vol_chunk = np.pad(
+                    vol_chunk, ((0, pad_z), (0, 0), (0, 0)), mode="edge"
+                )
 
             # Skip pure background noise
             if np.mean(vol_chunk) < 0.01:
@@ -84,7 +98,13 @@ class FrechetEvaluator:
             )
 
             chunk_resized = torch.nn.functional.interpolate(
-                chunk_t, size=(chunk_depth, target_spatial_size[0], target_spatial_size[1]), mode="trilinear"
+                chunk_t,
+                size=(
+                    chunk_depth,
+                    target_spatial_size[0],
+                    target_spatial_size[1],
+                ),
+                mode="trilinear",
             )
 
             # Normalize to standard vision statistics
@@ -96,7 +116,11 @@ class FrechetEvaluator:
 
     @staticmethod
     def _calculate_frechet_distance(
-        mu1: np.ndarray, sigma1: np.ndarray, mu2: np.ndarray, sigma2: np.ndarray, eps: float = 1e-6
+        mu1: np.ndarray,
+        sigma1: np.ndarray,
+        mu2: np.ndarray,
+        sigma2: np.ndarray,
+        eps: float = 1e-6,
     ) -> float:
         """
         Computes Fréchet Distance: d^2 = ||mu1 - mu2||^2 + Tr(sigma1 + sigma2 - 2*sqrt(sigma1*sigma2)).
@@ -122,7 +146,9 @@ class FrechetEvaluator:
             try:
                 covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset))
             except TypeError:
-                covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset), disp=False)
+                covmean = linalg.sqrtm(
+                    (sigma1 + offset).dot(sigma2 + offset), disp=False
+                )
             if isinstance(covmean, tuple):
                 covmean = covmean[0]
 
@@ -130,27 +156,40 @@ class FrechetEvaluator:
             covmean = covmean.real
 
         tr_covmean = np.trace(covmean)
-        return float(diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean)
+        return float(
+            diff.dot(diff)
+            + np.trace(sigma1)
+            + np.trace(sigma2)
+            - 2 * tr_covmean
+        )
 
     def evaluate(self, ablations: List[str]) -> pd.DataFrame:
         """Executes full 3D-FID and FVD benchmark across all model ablation volumes."""
         gt_files = sorted(glob.glob(os.path.join(self.results_dir, "gt_*.npy")))
         if not gt_files:
-            logger.error(f"No Ground Truth files (gt_*.npy) found in {self.results_dir}.")
+            logger.error(
+                f"No Ground Truth files (gt_*.npy) found in {self.results_dir}."
+            )
             return pd.DataFrame()
 
         feats_r3d = {k: [] for k in ["gt"] + ablations}
         feats_mvit = {k: [] for k in ["gt"] + ablations}
 
         for gt_path in tqdm(gt_files, desc="Extracting 3D Features"):
-            vol_id = os.path.basename(gt_path).replace("gt_", "").replace(".npy", "")
+            vol_id = (
+                os.path.basename(gt_path).replace("gt_", "").replace(".npy", "")
+            )
             gt_vol = np.load(gt_path)
 
             feats_r3d["gt"].extend(
-                self._extract_sliding_features(gt_vol, self.r3d, target_spatial_size=(112, 112))
+                self._extract_sliding_features(
+                    gt_vol, self.r3d, target_spatial_size=(112, 112)
+                )
             )
             feats_mvit["gt"].extend(
-                self._extract_sliding_features(gt_vol, self.mvit, target_spatial_size=(224, 224))
+                self._extract_sliding_features(
+                    gt_vol, self.mvit, target_spatial_size=(224, 224)
+                )
             )
 
             for ab in ablations:
@@ -159,25 +198,45 @@ class FrechetEvaluator:
                     continue
                 pred_vol = np.load(pred_path)
                 feats_r3d[ab].extend(
-                    self._extract_sliding_features(pred_vol, self.r3d, target_spatial_size=(112, 112))
+                    self._extract_sliding_features(
+                        pred_vol, self.r3d, target_spatial_size=(112, 112)
+                    )
                 )
                 feats_mvit[ab].extend(
-                    self._extract_sliding_features(pred_vol, self.mvit, target_spatial_size=(224, 224))
+                    self._extract_sliding_features(
+                        pred_vol, self.mvit, target_spatial_size=(224, 224)
+                    )
                 )
 
         results = []
-        mu_gt_r3d, sig_gt_r3d = np.mean(feats_r3d["gt"], axis=0), np.cov(feats_r3d["gt"], rowvar=False)
-        mu_gt_mvit, sig_gt_mvit = np.mean(feats_mvit["gt"], axis=0), np.cov(feats_mvit["gt"], rowvar=False)
+        mu_gt_r3d, sig_gt_r3d = (
+            np.mean(feats_r3d["gt"], axis=0),
+            np.cov(feats_r3d["gt"], rowvar=False),
+        )
+        mu_gt_mvit, sig_gt_mvit = (
+            np.mean(feats_mvit["gt"], axis=0),
+            np.cov(feats_mvit["gt"], rowvar=False),
+        )
 
         for ab in ablations:
             if len(feats_r3d[ab]) == 0:
                 continue
 
-            mu_ab_r3d, sig_ab_r3d = np.mean(feats_r3d[ab], axis=0), np.cov(feats_r3d[ab], rowvar=False)
-            mu_ab_mvit, sig_ab_mvit = np.mean(feats_mvit[ab], axis=0), np.cov(feats_mvit[ab], rowvar=False)
+            mu_ab_r3d, sig_ab_r3d = (
+                np.mean(feats_r3d[ab], axis=0),
+                np.cov(feats_r3d[ab], rowvar=False),
+            )
+            mu_ab_mvit, sig_ab_mvit = (
+                np.mean(feats_mvit[ab], axis=0),
+                np.cov(feats_mvit[ab], rowvar=False),
+            )
 
-            fid_3d = self._calculate_frechet_distance(mu_gt_r3d, sig_gt_r3d, mu_ab_r3d, sig_ab_r3d)
-            fvd = self._calculate_frechet_distance(mu_gt_mvit, sig_gt_mvit, mu_ab_mvit, sig_ab_mvit)
+            fid_3d = self._calculate_frechet_distance(
+                mu_gt_r3d, sig_gt_r3d, mu_ab_r3d, sig_ab_r3d
+            )
+            fvd = self._calculate_frechet_distance(
+                mu_gt_mvit, sig_gt_mvit, mu_ab_mvit, sig_ab_mvit
+            )
 
             results.append({"Ablation": ab, "3D-FID": fid_3d, "FVD": fvd})
 
@@ -186,4 +245,3 @@ class FrechetEvaluator:
         df.to_csv(csv_path, index=False)
         logger.info(f"Fréchet metrics saved to: {csv_path}")
         return df
-

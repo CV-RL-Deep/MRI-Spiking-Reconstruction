@@ -1,6 +1,7 @@
 import glob
 import os
 import re
+
 from typing import Dict, List, Optional
 
 from spirec.core.utils import logger
@@ -30,7 +31,8 @@ def find_t1_files(root_dir: str) -> List[str]:
     valid_files = [
         path
         for path in matches
-        if os.path.getsize(path) > 1024 and os.path.basename(path) not in EXCLUDE_FILES
+        if os.path.getsize(path) > 1024
+        and os.path.basename(path) not in EXCLUDE_FILES
     ]
     logger.info(f"Indexed {len(valid_files)} valid T1 volumes in: {root_dir}")
     return sorted(valid_files)
@@ -47,7 +49,11 @@ def get_brats_subjects(root_dir: str) -> List[Dict[str, Optional[str]]]:
             continue
 
         folder = os.path.dirname(t1_path)
-        subject_id = os.path.basename(t1_path).replace("_t1.nii.gz", "").replace("_t1.nii", "")
+        subject_id = (
+            os.path.basename(t1_path)
+            .replace("_t1.nii.gz", "")
+            .replace("_t1.nii", "")
+        )
 
         seg_path = os.path.join(folder, f"{subject_id}_seg.nii.gz")
         if not os.path.exists(seg_path):
@@ -60,4 +66,3 @@ def get_brats_subjects(root_dir: str) -> List[Dict[str, Optional[str]]]:
 
     logger.info(f"Indexed {len(subjects)} BraTS paired subjects in: {root_dir}")
     return subjects
-

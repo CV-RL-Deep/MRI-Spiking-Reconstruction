@@ -2,6 +2,7 @@ import os
 import random
 import threading
 import time
+
 from abc import ABC, abstractmethod
 from collections import Counter, OrderedDict
 from typing import Dict, List, Optional, Tuple, Union
@@ -17,7 +18,10 @@ class MedicalVolume:
     """Standardized in-RAM container for normalized (Z, H, W) volumetric data."""
 
     def __init__(
-        self, t1_data: np.ndarray, seg_data: Optional[np.ndarray] = None, path: str = ""
+        self,
+        t1_data: np.ndarray,
+        seg_data: Optional[np.ndarray] = None,
+        path: str = "",
     ):
         self.t1 = t1_data  # Shape: (Z, H, W) in [0.0, 1.0]
         self.seg = seg_data  # Shape: (Z, H, W) or None
@@ -25,9 +29,21 @@ class MedicalVolume:
         self.shape = t1_data.shape
 
         self.indices = {
-            "any": {0: np.array([], dtype=int), 1: np.array([], dtype=int), 2: np.array([], dtype=int)},
-            "clean": {0: np.array([], dtype=int), 1: np.array([], dtype=int), 2: np.array([], dtype=int)},
-            "tumor": {0: np.array([], dtype=int), 1: np.array([], dtype=int), 2: np.array([], dtype=int)},
+            "any": {
+                0: np.array([], dtype=int),
+                1: np.array([], dtype=int),
+                2: np.array([], dtype=int),
+            },
+            "clean": {
+                0: np.array([], dtype=int),
+                1: np.array([], dtype=int),
+                2: np.array([], dtype=int),
+            },
+            "tumor": {
+                0: np.array([], dtype=int),
+                1: np.array([], dtype=int),
+                2: np.array([], dtype=int),
+            },
         }
         self._analyze_spatial_occupancy()
 
@@ -35,14 +51,18 @@ class MedicalVolume:
         """Computes valid slice coordinate indices across Axial, Coronal, and Sagittal views."""
         for axis in (0, 1, 2):
             reduce_axes = tuple(i for i in range(3) if i != axis)
-            tissue_thresh = self.shape[reduce_axes[0]] * self.shape[reduce_axes[1]] * 0.01
+            tissue_thresh = (
+                self.shape[reduce_axes[0]] * self.shape[reduce_axes[1]] * 0.01
+            )
             tissue_mask = np.sum(self.t1, axis=reduce_axes) > tissue_thresh
             self.indices["any"][axis] = np.where(tissue_mask)[0]
 
             if self.seg is not None:
                 tumor_mask = np.max(self.seg, axis=reduce_axes) > 0
                 self.indices["tumor"][axis] = np.where(tumor_mask)[0]
-                self.indices["clean"][axis] = np.where(tissue_mask & (~tumor_mask))[0]
+                self.indices["clean"][axis] = np.where(
+                    tissue_mask & (~tumor_mask)
+                )[0]
             else:
                 self.indices["clean"][axis] = self.indices["any"][axis]
 
@@ -51,7 +71,9 @@ class VolumeLoader:
     """Standardized I/O engine for NIfTI volumes: Canonical RAS+, bounding crop, and scaling."""
 
     @staticmethod
-    def load(t1_path: str, seg_path: Optional[str] = None) -> Optional[MedicalVolume]:
+    def load(
+        t1_path: str, seg_path: Optional[str] = None
+    ) -> Optional[MedicalVolume]:
         try:
             t1_img = nib.load(t1_path)
             t1_img = nib.as_closest_canonical(t1_img)
@@ -96,7 +118,9 @@ class DataLoaderBase(ABC):
     def __init__(self, config: Config):
         self.cfg = config
         self.lock = threading.Lock()
-        self.pool: Dict[str, Union[Dict[str, MedicalVolume], List[MedicalVolume]]] = {}
+        self.pool: Dict[
+            str, Union[Dict[str, MedicalVolume], List[MedicalVolume]]
+        ] = {}
 
     @abstractmethod
     def get_volume(self, collection_id: str) -> Optional[MedicalVolume]:
@@ -114,7 +138,11 @@ class DataLoaderBase(ABC):
         """
         with self.lock:
             pool_ref = self.pool.get("brats", {})
-            brats_vols = list(pool_ref.values()) if isinstance(pool_ref, dict) else list(pool_ref)
+            brats_vols = (
+                list(pool_ref.values())
+                if isinstance(pool_ref, dict)
+                else list(pool_ref)
+            )
 
         if not brats_vols:
             return None
@@ -159,7 +187,9 @@ class DataLoaderBase(ABC):
 class StaticLoader(DataLoaderBase):
     """Loads all volumes into persistent RAM upfront (Cluster & Evaluation mode)."""
 
-    def __init__(self, config: Config, ixi_paths: List[str], brats_entries: List[Dict]):
+    def __init__(
+        self, config: Config, ixi_paths: List[str], brats_entries: List[Dict]
+    ):
         super().__init__(config)
         self.pool = {"ixi": [], "brats": []}
 
@@ -187,7 +217,9 @@ class StaticLoader(DataLoaderBase):
 class ActiveLoader(DataLoaderBase):
     """Dynamic background worker rolling volumes into RAM under constrained capacity (Kaggle mode)."""
 
-    def __init__(self, config: Config, ixi_paths: List[str], brats_entries: List[Dict]):
+    def __init__(
+        self, config: Config, ixi_paths: List[str], brats_entries: List[Dict]
+    ):
         super().__init__(config)
         self.files = {}
         if ixi_paths:
@@ -210,7 +242,9 @@ class ActiveLoader(DataLoaderBase):
         if self.active:
             return
         self.active = True
-        self.worker_thread = threading.Thread(target=self._preload_loop, daemon=True)
+        self.worker_thread = threading.Thread(
+            target=self._preload_loop, daemon=True
+        )
         self.worker_thread.start()
 
         # Warmup loop: wait until minimum volumes are cached
@@ -261,6 +295,7 @@ class ActiveLoader(DataLoaderBase):
 
             # Adaptive throttle
             total_cached = sum(len(p) for p in self.pool.values())
-            target_capacity = self.cfg.data.ixi_cache_size + self.cfg.data.brats_cache_size
+            target_capacity = (
+                self.cfg.data.ixi_cache_size + self.cfg.data.brats_cache_size
+            )
             time.sleep(0.05 if total_cached >= target_capacity else 0.005)
-

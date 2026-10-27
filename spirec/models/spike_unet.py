@@ -1,8 +1,13 @@
 from typing import Dict, Optional, Tuple
+
 import torch
 import torch.nn as nn
+
 from spirec.models.layers.plif import PLIF
-from spirec.models.layers.spiking_blocks import SpikingConvUnit, SpikingResidualBlock
+from spirec.models.layers.spiking_blocks import (
+    SpikingConvUnit,
+    SpikingResidualBlock,
+)
 
 
 class SpikeARUNet(nn.Module):
@@ -26,36 +31,63 @@ class SpikeARUNet(nn.Module):
         self.base_filters = base_filters
 
         # 1. Direct Analog Current Drive
-        self.input_encoder = nn.Conv2d(in_channels, base_filters, kernel_size=3, padding=1, bias=False)
+        self.input_encoder = nn.Conv2d(
+            in_channels, base_filters, kernel_size=3, padding=1, bias=False
+        )
         self.input_bn = nn.BatchNorm2d(base_filters)
         self.input_plif = PLIF(
-            base_filters, v_threshold=v_threshold, initial_beta=initial_beta, surrogate_alpha=surrogate_alpha
+            base_filters,
+            v_threshold=v_threshold,
+            initial_beta=initial_beta,
+            surrogate_alpha=surrogate_alpha,
         )
 
         # 2. Encoder Pipeline
-        self.enc1 = SpikingResidualBlock(base_filters, surrogate_alpha=surrogate_alpha)
-        self.down1 = SpikingConvUnit(base_filters, base_filters * 2, stride=2, surrogate_alpha=surrogate_alpha)
+        self.enc1 = SpikingResidualBlock(
+            base_filters, surrogate_alpha=surrogate_alpha
+        )
+        self.down1 = SpikingConvUnit(
+            base_filters,
+            base_filters * 2,
+            stride=2,
+            surrogate_alpha=surrogate_alpha,
+        )
 
-        self.enc2 = SpikingResidualBlock(base_filters * 2, surrogate_alpha=surrogate_alpha)
-        self.down2 = SpikingConvUnit(base_filters * 2, base_filters * 4, stride=2, surrogate_alpha=surrogate_alpha)
+        self.enc2 = SpikingResidualBlock(
+            base_filters * 2, surrogate_alpha=surrogate_alpha
+        )
+        self.down2 = SpikingConvUnit(
+            base_filters * 2,
+            base_filters * 4,
+            stride=2,
+            surrogate_alpha=surrogate_alpha,
+        )
 
         # 3. Bottleneck
-        self.bottleneck = SpikingResidualBlock(base_filters * 4, surrogate_alpha=surrogate_alpha)
+        self.bottleneck = SpikingResidualBlock(
+            base_filters * 4, surrogate_alpha=surrogate_alpha
+        )
 
         # 4. Decoder Pipeline
         self.up2 = nn.Upsample(scale_factor=2, mode="nearest")
         self.dec2 = SpikingConvUnit(
-            base_filters * 4 + base_filters * 2, base_filters * 2, surrogate_alpha=surrogate_alpha
+            base_filters * 4 + base_filters * 2,
+            base_filters * 2,
+            surrogate_alpha=surrogate_alpha,
         )
 
         self.up1 = nn.Upsample(scale_factor=2, mode="nearest")
         self.dec1 = SpikingConvUnit(
-            base_filters * 2 + base_filters, base_filters, surrogate_alpha=surrogate_alpha
+            base_filters * 2 + base_filters,
+            base_filters,
+            surrogate_alpha=surrogate_alpha,
         )
 
         # 5. Non-Spiking Analog Readout
         self.readout_conv = nn.Conv2d(base_filters, 1, kernel_size=3, padding=1)
-        self.readout_beta = nn.Parameter(torch.tensor([0.7], dtype=torch.float32))
+        self.readout_beta = nn.Parameter(
+            torch.tensor([0.7], dtype=torch.float32)
+        )
 
         # Layer tracking references for firing rate statistics
         self.spiking_layers = [
@@ -73,7 +105,9 @@ class SpikeARUNet(nn.Module):
         ]
 
     def forward(
-        self, ctx_stack: torch.Tensor, u_init: Optional[Dict[str, torch.Tensor]] = None
+        self,
+        ctx_stack: torch.Tensor,
+        u_init: Optional[Dict[str, torch.Tensor]] = None,
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
         b, _, h, w = ctx_stack.shape
 
@@ -97,22 +131,32 @@ class SpikeARUNet(nn.Module):
         t = self.t_sim
 
         # Stage 2 Up
-        s_bot_flat = s_bot.reshape(t * b, s_bot.shape[2], s_bot.shape[3], s_bot.shape[4])
+        s_bot_flat = s_bot.reshape(
+            t * b, s_bot.shape[2], s_bot.shape[3], s_bot.shape[4]
+        )
         up2_flat = self.up2(s_bot_flat)
-        up2_seq = up2_flat.reshape(t, b, up2_flat.shape[1], up2_flat.shape[2], up2_flat.shape[3])
+        up2_seq = up2_flat.reshape(
+            t, b, up2_flat.shape[1], up2_flat.shape[2], up2_flat.shape[3]
+        )
         s_dec2 = self.dec2(torch.cat([up2_seq, s_e2], dim=2))
 
         # Stage 1 Up
-        s_dec2_flat = s_dec2.reshape(t * b, s_dec2.shape[2], s_dec2.shape[3], s_dec2.shape[4])
+        s_dec2_flat = s_dec2.reshape(
+            t * b, s_dec2.shape[2], s_dec2.shape[3], s_dec2.shape[4]
+        )
         up1_flat = self.up1(s_dec2_flat)
-        up1_seq = up1_flat.reshape(t, b, up1_flat.shape[1], up1_flat.shape[2], up1_flat.shape[3])
+        up1_seq = up1_flat.reshape(
+            t, b, up1_flat.shape[1], up1_flat.shape[2], up1_flat.shape[3]
+        )
         s_dec1 = self.dec1(torch.cat([up1_seq, s_e1], dim=2))
 
         # E. Non-Spiking Analog Membrane Voltage Integration
         dec1_flat = s_dec1.reshape(t * b, s_dec1.shape[2], h, w)
         currents = self.readout_conv(dec1_flat).reshape(t, b, 1, h, w)
 
-        u_out = torch.zeros((b, 1, h, w), device=ctx_stack.device, dtype=ctx_stack.dtype)
+        u_out = torch.zeros(
+            (b, 1, h, w), device=ctx_stack.device, dtype=ctx_stack.dtype
+        )
         beta_ro = torch.sigmoid(self.readout_beta)
         accumulated_slices = []
 
@@ -133,4 +177,3 @@ class SpikeARUNet(nn.Module):
         }
 
         return x_hat, metrics
-

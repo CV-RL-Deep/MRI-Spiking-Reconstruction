@@ -1,8 +1,10 @@
 import random
+
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+
 from torch.utils.data import Dataset
 
 from spirec.configs.config import Config
@@ -17,7 +19,12 @@ class AutoregressiveSliceDataset(Dataset):
     Produces random sequential slices on-the-fly from the in-RAM volume cache.
     """
 
-    def __init__(self, data_manager: DataLoaderBase, config: Config, samples_per_epoch: int = 5000):
+    def __init__(
+        self,
+        data_manager: DataLoaderBase,
+        config: Config,
+        samples_per_epoch: int = 5000,
+    ):
         self.manager = data_manager
         self.cfg = config
         self.length = samples_per_epoch
@@ -26,7 +33,9 @@ class AutoregressiveSliceDataset(Dataset):
     def __len__(self) -> int:
         return self.length
 
-    def _sample_slice_indices(self, vol: MedicalVolume, axis: int, n_ctx: int) -> Optional[int]:
+    def _sample_slice_indices(
+        self, vol: MedicalVolume, axis: int, n_ctx: int
+    ) -> Optional[int]:
         candidates = vol.indices["clean"][axis]
         if len(candidates) == 0:
             return None
@@ -35,9 +44,9 @@ class AutoregressiveSliceDataset(Dataset):
         valid_starts = []
         for s in range(axis_size - n_ctx):
             seq = set(range(s, s + n_ctx + 1))
-            if not seq.intersection(set(vol.indices["tumor"][axis])) and seq.intersection(
-                set(vol.indices["any"][axis])
-            ):
+            if not seq.intersection(
+                set(vol.indices["tumor"][axis])
+            ) and seq.intersection(set(vol.indices["any"][axis])):
                 valid_starts.append(s)
 
         if not valid_starts:
@@ -59,9 +68,15 @@ class AutoregressiveSliceDataset(Dataset):
             pad_h, pad_w = self.cfg.data.padded_size
             n_ctx = self.cfg.data.neighborhood
             return {
-                "ctx_stack": torch.zeros(n_ctx, pad_h, pad_w, dtype=torch.float32),
-                "target_slice": torch.zeros(1, pad_h, pad_w, dtype=torch.float32),
-                "target_mask": torch.zeros(1, pad_h, pad_w, dtype=torch.float32),
+                "ctx_stack": torch.zeros(
+                    n_ctx, pad_h, pad_w, dtype=torch.float32
+                ),
+                "target_slice": torch.zeros(
+                    1, pad_h, pad_w, dtype=torch.float32
+                ),
+                "target_mask": torch.zeros(
+                    1, pad_h, pad_w, dtype=torch.float32
+                ),
                 "tumor_mask": torch.zeros(1, pad_h, pad_w, dtype=torch.float32),
                 "z_norm": torch.tensor([0.5], dtype=torch.float32),
             }
@@ -76,7 +91,11 @@ class AutoregressiveSliceDataset(Dataset):
         # Extract (N+1, H, W) raw stack
         stack = vol.t1[start_idx : start_idx + n_ctx + 1].copy()
         if stack.shape[0] != n_ctx + 1:
-            stack = np.pad(stack, ((0, (n_ctx + 1) - stack.shape[0]), (0, 0), (0, 0)), mode="edge")
+            stack = np.pad(
+                stack,
+                ((0, (n_ctx + 1) - stack.shape[0]), (0, 0), (0, 0)),
+                mode="edge",
+            )
 
         # Bidirectional slice sequence flip
         is_backward = random.random() < 0.5
@@ -95,29 +114,37 @@ class AutoregressiveSliceDataset(Dataset):
 
         # Pathology void injection
         if random.random() < self.cfg.aug.prob_glioma:
-            seg_stack = self.manager.get_matched_glioma_stack(axis, z_norm, n_ctx)
+            seg_stack = self.manager.get_matched_glioma_stack(
+                axis, z_norm, n_ctx
+            )
             if seg_stack is not None:
                 if is_backward:
                     seg_stack = np.flip(seg_stack, axis=0)
-                input_stack, target_tumor_mask, applied = AugmentationLogic.apply_tumor_void_direct(
-                    input_stack, seg_stack, self.cfg.aug
+                input_stack, target_tumor_mask, applied = (
+                    AugmentationLogic.apply_tumor_void_direct(
+                        input_stack, seg_stack, self.cfg.aug
+                    )
                 )
 
         # Geometric transformations
         masks = [target_tumor_mask, brain_mask]
-        input_stack, target_slice, rotated_masks = AugmentationLogic.apply_geometric(
-            input_stack, target_slice, masks, self.cfg.aug
+        input_stack, target_slice, rotated_masks = (
+            AugmentationLogic.apply_geometric(
+                input_stack, target_slice, masks, self.cfg.aug
+            )
         )
         target_tumor_mask, brain_mask = rotated_masks
 
         # Markovian noise corruption
-        input_stack, _ = AugmentationLogic.apply_autoregressive_corruption(input_stack, self.cfg.aug)
+        input_stack, _ = AugmentationLogic.apply_autoregressive_corruption(
+            input_stack, self.cfg.aug
+        )
 
         return {
-            "ctx_stack_np": input_stack.astype(np.float32),      # (N, H, W)
+            "ctx_stack_np": input_stack.astype(np.float32),  # (N, H, W)
             "target_slice_np": target_slice.astype(np.float32),  # (H, W)
-            "brain_mask_np": brain_mask.astype(np.float32),      # (H, W)
-            "tumor_mask_np": target_tumor_mask.astype(np.float32),# (H, W)
+            "brain_mask_np": brain_mask.astype(np.float32),  # (H, W)
+            "tumor_mask_np": target_tumor_mask.astype(np.float32),  # (H, W)
             "z_norm": z_norm,
         }
 
@@ -127,7 +154,12 @@ class SequentialValidationDataset(Dataset):
     Deterministic validation dataset extracting a fixed window of center slices.
     """
 
-    def __init__(self, data_manager: DataLoaderBase, config: Config, slices_per_vol: int = 15):
+    def __init__(
+        self,
+        data_manager: DataLoaderBase,
+        config: Config,
+        slices_per_vol: int = 15,
+    ):
         self.manager = data_manager
         self.cfg = config
         self.n_ctx = config.data.neighborhood
@@ -138,8 +170,20 @@ class SequentialValidationDataset(Dataset):
         ixi_pool = self.manager.pool.get("ixi", [])
         brats_pool = self.manager.pool.get("brats", [])
 
-        vols = [("ixi", v) for v in (ixi_pool.values() if isinstance(ixi_pool, dict) else ixi_pool)]
-        vols += [("brats", v) for v in (brats_pool.values() if isinstance(brats_pool, dict) else brats_pool)]
+        vols = [
+            ("ixi", v)
+            for v in (
+                ixi_pool.values() if isinstance(ixi_pool, dict) else ixi_pool
+            )
+        ]
+        vols += [
+            ("brats", v)
+            for v in (
+                brats_pool.values()
+                if isinstance(brats_pool, dict)
+                else brats_pool
+            )
+        ]
 
         for col, vol in vols:
             axis = 0
@@ -179,7 +223,9 @@ class SequentialValidationDataset(Dataset):
 
         if vol.seg is not None:
             seg_target = vol.seg[target_idx]
-            tumor_mask = np.isin(seg_target, self.cfg.aug.brats_labels_for_void).astype(np.float32)
+            tumor_mask = np.isin(
+                seg_target, self.cfg.aug.brats_labels_for_void
+            ).astype(np.float32)
 
         z_norm = float(target_idx) / max(1.0, float(vol.shape[0] - 1))
 
@@ -192,7 +238,10 @@ class SequentialValidationDataset(Dataset):
         }
 
 
-def collate_autoregressive(batch: List[Dict[str, Any]], target_spatial_size: Tuple[int, int] = (160, 160)) -> Dict[str, torch.Tensor]:
+def collate_autoregressive(
+    batch: List[Dict[str, Any]],
+    target_spatial_size: Tuple[int, int] = (160, 160),
+) -> Dict[str, torch.Tensor]:
     """
     Letterboxes and pads NumPy arrays into uniform PyTorch batch tensors.
     """
@@ -212,10 +261,18 @@ def collate_autoregressive(batch: List[Dict[str, Any]], target_spatial_size: Tup
         tm_t = torch.from_numpy(item["tumor_mask_np"]).unsqueeze(0)
 
         # Apply aspect-ratio-preserving letterbox padding to (160, 160)
-        ctx_pad, _, _ = GeometryOps.resize_and_pad(ctx_t, target_spatial_size, mode="bicubic")
-        tgt_pad, _, _ = GeometryOps.resize_and_pad(tgt_t, target_spatial_size, mode="bicubic")
-        bm_pad, _, _ = GeometryOps.resize_and_pad(bm_t, target_spatial_size, mode="nearest")
-        tm_pad, _, _ = GeometryOps.resize_and_pad(tm_t, target_spatial_size, mode="nearest")
+        ctx_pad, _, _ = GeometryOps.resize_and_pad(
+            ctx_t, target_spatial_size, mode="bicubic"
+        )
+        tgt_pad, _, _ = GeometryOps.resize_and_pad(
+            tgt_t, target_spatial_size, mode="bicubic"
+        )
+        bm_pad, _, _ = GeometryOps.resize_and_pad(
+            bm_t, target_spatial_size, mode="nearest"
+        )
+        tm_pad, _, _ = GeometryOps.resize_and_pad(
+            tm_t, target_spatial_size, mode="nearest"
+        )
 
         ctx_tensors.append(ctx_pad)
         tgt_tensors.append(tgt_pad)
@@ -224,10 +281,9 @@ def collate_autoregressive(batch: List[Dict[str, Any]], target_spatial_size: Tup
         z_positions.append(torch.tensor([item["z_norm"]], dtype=torch.float32))
 
     return {
-        "ctx_stack": torch.stack(ctx_tensors, dim=0),      # (B, N, H_pad, W_pad)
+        "ctx_stack": torch.stack(ctx_tensors, dim=0),  # (B, N, H_pad, W_pad)
         "target_slice": torch.stack(tgt_tensors, dim=0),  # (B, 1, H_pad, W_pad)
-        "brain_mask": torch.stack(brain_masks, dim=0),    # (B, 1, H_pad, W_pad)
-        "tumor_mask": torch.stack(tumor_masks, dim=0),    # (B, 1, H_pad, W_pad)
-        "z_norm": torch.stack(z_positions, dim=0),        # (B, 1)
+        "brain_mask": torch.stack(brain_masks, dim=0),  # (B, 1, H_pad, W_pad)
+        "tumor_mask": torch.stack(tumor_masks, dim=0),  # (B, 1, H_pad, W_pad)
+        "z_norm": torch.stack(z_positions, dim=0),  # (B, 1)
     }
-

@@ -1,10 +1,10 @@
 import os
 import random
-from typing import Dict, List, Optional, Tuple
+
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 
 from spirec.core.utils import logger
 
@@ -13,7 +13,9 @@ class VisualizationSuite:
     """Diagnostic visualization utilities for slice synthesis and error accumulation."""
 
     @staticmethod
-    def plot_ortho_slices(volume: np.ndarray, title: str = "Tri-Planar Orthogonal View") -> None:
+    def plot_ortho_slices(
+        volume: np.ndarray, title: str = "Tri-Planar Orthogonal View"
+    ) -> None:
         """Plots Axial, Coronal, and Sagittal cross-sections from volume center."""
         c_z, c_y, c_x = np.array(volume.shape) // 2
 
@@ -89,11 +91,18 @@ class VisualizationSuite:
         ry = random.uniform(max_radius * 0.6, max_radius * 1.0)
         rx = random.uniform(max_radius * 0.6, max_radius * 1.0)
 
-        z, y, x = np.ogrid[: target_volume.shape[0], : target_volume.shape[1], : target_volume.shape[2]]
-        dist = ((z - cz) ** 2 / rz**2) + ((y - cy) ** 2 / ry**2) + ((x - cx) ** 2 / rx**2)
+        z, y, x = np.ogrid[
+            : target_volume.shape[0],
+            : target_volume.shape[1],
+            : target_volume.shape[2],
+        ]
+        dist = (
+            ((z - cz) ** 2 / rz**2)
+            + ((y - cy) ** 2 / ry**2)
+            + ((x - cx) ** 2 / rx**2)
+        )
         blob = np.exp(-dist)
 
         mask[blob > 0.3] = 1.0
         brain_matter = (target_volume > 0.01).astype(np.float32)
         return mask * brain_matter
-

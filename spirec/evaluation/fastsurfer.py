@@ -1,11 +1,14 @@
 import glob
 import os
 import subprocess
-from typing import Dict, List
+
+from typing import List
 
 import nibabel as nib
 import numpy as np
 import pandas as pd
+import torch
+
 from tqdm import tqdm
 
 from spirec.configs.config import Config
@@ -29,7 +32,16 @@ class FastSurferEvaluator:
         # FreeSurfer DKT Atlas Macro-Region Label Mapping
         self.macro_regions = {
             "Ventricles": [4, 43],  # Left and Right Lateral Ventricles
-            "Deep_GM": [10, 49, 11, 50, 12, 51, 13, 52],  # Thalamus, Caudate, Putamen, Pallidum
+            "Deep_GM": [
+                10,
+                49,
+                11,
+                50,
+                12,
+                51,
+                13,
+                52,
+            ],  # Thalamus, Caudate, Putamen, Pallidum
             "White_Matter": [2, 41],  # Cerebral White Matter
             "Cortex": list(range(1000, 1036)) + list(range(2000, 2036)),
         }
@@ -52,7 +64,9 @@ class FastSurferEvaluator:
         """
         npy_files = sorted(glob.glob(os.path.join(self.results_dir, "*.npy")))
         if not npy_files:
-            logger.warning(f"No .npy files found in {self.results_dir} for NIfTI conversion.")
+            logger.warning(
+                f"No .npy files found in {self.results_dir} for NIfTI conversion."
+            )
             return
 
         for f in tqdm(npy_files, desc="Converting to NIfTI"):
@@ -74,9 +88,13 @@ class FastSurferEvaluator:
 
     def run_prediction(self) -> None:
         """Executes FastSurfer neural segmentation on generated NIfTI volumes."""
-        nifti_files = sorted(glob.glob(os.path.join(self.nifti_dir, "*.nii.gz")))
+        nifti_files = sorted(
+            glob.glob(os.path.join(self.nifti_dir, "*.nii.gz"))
+        )
         env = os.environ.copy()
-        env["PYTHONPATH"] = os.path.abspath("FastSurfer") + ":" + env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            os.path.abspath("FastSurfer") + ":" + env.get("PYTHONPATH", "")
+        )
         env["FASTSURFER_HOME"] = os.path.abspath("FastSurfer")
 
         # Dummy license bypass for seg_only mode
@@ -87,7 +105,9 @@ class FastSurferEvaluator:
 
         for f in tqdm(nifti_files, desc="FastSurfer Segmentation"):
             sid = os.path.basename(f).replace(".nii.gz", "")
-            out_file = os.path.join(self.seg_dir, sid, "mri", "aparc.DKTatlas+aseg.deep.mgz")
+            out_file = os.path.join(
+                self.seg_dir, sid, "mri", "aparc.DKTatlas+aseg.deep.mgz"
+            )
 
             if os.path.exists(out_file):
                 continue
@@ -111,7 +131,9 @@ class FastSurferEvaluator:
                 "4",
             ]
 
-            result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+            result = subprocess.run(
+                cmd, env=env, capture_output=True, text=True
+            )
             if result.returncode != 0:
                 logger.error(f"FastSurfer failed for {sid}:\n{result.stderr}")
 
@@ -134,7 +156,9 @@ class FastSurferEvaluator:
 
         for gt_sid in tqdm(gt_sids, desc="Calculating Anatomical DSC"):
             vol_id = gt_sid.replace("gt_", "")
-            gt_path = os.path.join(self.seg_dir, gt_sid, "mri", "aparc.DKTatlas+aseg.deep.mgz")
+            gt_path = os.path.join(
+                self.seg_dir, gt_sid, "mri", "aparc.DKTatlas+aseg.deep.mgz"
+            )
             if not os.path.exists(gt_path):
                 continue
 
@@ -142,7 +166,12 @@ class FastSurferEvaluator:
 
             for ab in ablations:
                 pred_sid = f"{ab}_{vol_id}"
-                pred_path = os.path.join(self.seg_dir, pred_sid, "mri", "aparc.DKTatlas+aseg.deep.mgz")
+                pred_path = os.path.join(
+                    self.seg_dir,
+                    pred_sid,
+                    "mri",
+                    "aparc.DKTatlas+aseg.deep.mgz",
+                )
                 if not os.path.exists(pred_path):
                     continue
 
@@ -167,4 +196,3 @@ class FastSurferEvaluator:
         df.to_csv(csv_path, index=False)
         logger.info(f"Anatomical DSC metrics saved to: {csv_path}")
         return df
-
