@@ -27,6 +27,7 @@ class Trainer:
         train_loader: DataLoader,
         val_loader: Optional[DataLoader] = None,
         device: Optional[torch.device] = None,
+        disable_pbar: bool = False,  # Flag to suppress multi-threaded TTY spam
     ):
         self.cfg = config
         self.device = device or torch.device(
@@ -35,6 +36,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.disable_pbar = disable_pbar
 
         self.loss_fn = CompositeLoss(config).to(self.device)
         self.optimizer = torch.optim.AdamW(
@@ -63,7 +65,10 @@ class Trainer:
         total_steps = len(self.train_loader)
 
         pbar = tqdm(
-            self.train_loader, desc=f"Epoch {epoch:03d} [Train]", leave=False
+            self.train_loader,
+            desc=f"Epoch {epoch:03d} [Train]",
+            leave=False,
+            disable=self.disable_pbar,  # Silences step-level tqdm
         )
 
         for step, batch in enumerate(pbar):
@@ -111,7 +116,8 @@ class Trainer:
                     v.item() if isinstance(v, torch.Tensor) else v
                 )
 
-            pbar.set_postfix({"Loss": f"{loss.item():.4f}"})
+            if not self.disable_pbar:
+                pbar.set_postfix({"Loss": f"{loss.item():.4f}"})
 
         # Calculate epoch mean
         epoch_metrics = {k: v / total_steps for k, v in running_losses.items()}
@@ -128,7 +134,10 @@ class Trainer:
         total_steps = len(self.val_loader)
 
         pbar = tqdm(
-            self.val_loader, desc=f"Epoch {epoch:03d} [Valid]", leave=False
+            self.val_loader,
+            desc=f"Epoch {epoch:03d} [Valid]",
+            leave=False,
+            disable=self.disable_pbar,  # Silences validation tqdm
         )
 
         for batch in pbar:
@@ -188,7 +197,11 @@ class Trainer:
                     self.checkpoint_dir, f"{self.cfg.model.name}_best.pt"
                 )
                 # To save weights cleanly when using DataParallel:
-                state_dict_model = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
+                state_dict_model = (
+                    self.model.module.state_dict()
+                    if hasattr(self.model, "module")
+                    else self.model.state_dict()
+                )
                 torch.save(
                     {
                         "epoch": epoch,
