@@ -83,7 +83,7 @@ class AugmentationConfig:
 class TrainingConfig:
     """Hyperparameters for optimization loops."""
 
-    batch_size: int = 16
+    batch_size: int = 32
     epochs: int = 60
     learning_rate: float = 3.14159e-4
     weight_decay: float = 1e-4
