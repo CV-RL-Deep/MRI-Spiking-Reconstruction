@@ -73,10 +73,10 @@ class DenseUNet2p5D(nn.Module):
         # Bottleneck
         b = self.bottleneck(p3)
 
-        # Decoder
-        d3 = self.dec3(torch.cat([self.up3(b), e3], dim=1))
-        d2 = self.dec2(torch.cat([self.up2(d3), e2], dim=1))
-        d1 = self.dec1(torch.cat([self.up1(d2), e1], dim=1))
+        # Decoder (Enforce contiguous memory layout before convolution)
+        d3 = self.dec3(torch.cat([self.up3(b), e3], dim=1).contiguous())
+        d2 = self.dec2(torch.cat([self.up2(d3), e2], dim=1).contiguous())
+        d1 = self.dec1(torch.cat([self.up1(d2), e1], dim=1).contiguous())
 
         # Output bounded to [0.0, 1.0]
         return torch.sigmoid(self.final_conv(d1))

@@ -187,10 +187,12 @@ class Trainer:
                 best_path = os.path.join(
                     self.checkpoint_dir, f"{self.cfg.model.name}_best.pt"
                 )
+                # To save weights cleanly when using DataParallel:
+                state_dict_model = self.model.module.state_dict() if hasattr(self.model, "module") else self.model.state_dict()
                 torch.save(
                     {
                         "epoch": epoch,
-                        "model_state_dict": self.model.state_dict(),
+                        "model_state_dict": state_dict_model,
                         "optimizer_state_dict": self.optimizer.state_dict(),
                         "config": self.cfg.to_dict(),
                         "val_loss": val_loss,
