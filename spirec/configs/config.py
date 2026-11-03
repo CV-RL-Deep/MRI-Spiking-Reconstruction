@@ -62,6 +62,9 @@ class DataConfig:
     weights_dir: str = "checkpoints"
     results_dir: str = "ablation_results"
     figures_dir: str = "paper_figures"
+    preload_dir: Optional[str] = (
+        None  # Path to pre-computed results/weights to bypass training
+    )
 
 
 @dataclass
