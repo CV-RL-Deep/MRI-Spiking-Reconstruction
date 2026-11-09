@@ -9,6 +9,7 @@ from spirec.models.losses import (
     SpectralLoss,
 )
 from spirec.models.spike_unet import SpikeARUNet
+from spirec.models.alif_unet import SpikeALIFARUNet
 
 
 class ModelBuilder:
@@ -40,6 +41,17 @@ class ModelBuilder:
                 initial_beta=config.snn.initial_beta,
                 surrogate_alpha=config.snn.surrogate_alpha,
             )
+        elif arch == "spike_alif_unet":
+            return SpikeALIFARUNet(
+                in_channels=config.data.neighborhood,
+                base_filters=config.model.base_filters,
+                t_sim=config.snn.t_sim,
+                v_0=config.snn.v_threshold,
+                initial_beta=config.snn.initial_beta,
+                initial_rho=config.snn.initial_rho,
+                initial_gamma=config.snn.initial_gamma,
+                surrogate_alpha=config.snn.surrogate_alpha,
+            )
         else:
             raise ValueError(f"Unsupported architecture: {arch}")
 
@@ -48,6 +60,7 @@ __all__ = [
     "ModelBuilder",
     "DenseUNet2p5D",
     "SpikeARUNet",
+    "SpikeALIFARUNet",
     "CompositeLoss",
     "GradientSharpnessLoss",
     "SpectralLoss",
