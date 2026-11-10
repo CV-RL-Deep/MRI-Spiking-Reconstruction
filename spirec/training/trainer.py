@@ -39,6 +39,9 @@ class Trainer:
         self.disable_pbar = disable_pbar
 
         self.loss_fn = CompositeLoss(config).to(self.device)
+        self.grad_accum_steps: int = max(
+            1, getattr(config.train, "grad_accum_steps", 1)
+        )
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
             lr=config.train.learning_rate,
@@ -71,6 +74,8 @@ class Trainer:
             leave=False,
             disable=self.disable_pbar,  # Silences step-level tqdm
         )
+
+        self.optimizer.zero_grad(set_to_none=True)
 
         for step, batch in enumerate(pbar):
             ctx_stack = batch["ctx_stack"].to(self.device, non_blocking=True)
@@ -106,13 +111,21 @@ class Trainer:
                     spike_rate_metrics=snn_metrics,
                 )
 
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), max_norm=1.0
-            )
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            # Scale loss for gradient accumulation while preserving raw loss logging
+            loss_scaled = loss / self.grad_accum_steps
+            self.scaler.scale(loss_scaled).backward()
+
+            # Update weights only at accumulation boundaries or on the final batch
+            if (step + 1) % self.grad_accum_steps == 0 or (
+                step + 1
+            ) == total_steps:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), max_norm=1.0
+                )
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad(set_to_none=True)
 
             # Metric tracking
             for k, v in loss_dict.items():
