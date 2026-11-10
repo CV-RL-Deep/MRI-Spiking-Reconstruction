@@ -69,7 +69,10 @@ class VolumeReconstructor:
             ctx_pad = torch.cat([ctx_pad, bm_pad], dim=1)
 
         # Forward execution
-        if self.cfg.model.architecture == "spike_unet":
+        if self.cfg.model.architecture in (
+            "spike_unet",
+            "spike_alif_unet",
+        ) or self.cfg.model.architecture.startswith("spike_"):
             pred_pad, _ = self.model(ctx_pad)
         else:
             pred_pad = self.model(ctx_pad)

@@ -56,8 +56,12 @@ class FocalFrequencyLoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         # Full 2D FFT with zero-frequency centered
-        fft_pred = torch.fft.fftshift(torch.fft.fft2(pred.float(), norm="ortho"), dim=(-2, -1))
-        fft_true = torch.fft.fftshift(torch.fft.fft2(target.float(), norm="ortho"), dim=(-2, -1))
+        fft_pred = torch.fft.fftshift(
+            torch.fft.fft2(pred.float(), norm="ortho"), dim=(-2, -1)
+        )
+        fft_true = torch.fft.fftshift(
+            torch.fft.fft2(target.float(), norm="ortho"), dim=(-2, -1)
+        )
 
         # Complex squared Euclidean distance matrix
         diff_matrix = torch.abs(fft_true - fft_pred) ** 2
@@ -125,13 +129,19 @@ class CompositeLoss(nn.Module):
             loss_dict["loss_grad"] = l_grad.item()
             loss_dict["loss_spec"] = l_spec.item()
 
-        elif arch == "spike_unet":
+        elif arch in ("spike_unet", "spike_alif_unet") or arch.startswith(
+            "spike_"
+        ):
             # Spiking loss: spatial reconstruction + gradient + spectral + metabolic firing rate
             l1_spatial = F.l1_loss(pred, target)
             l_grad = self.grad_loss(pred, target)
             l_ffl = self.ffl_loss(pred, target)
 
-            total_loss = l1_spatial + self.cfg.train.lambda_grad * l_grad + self.cfg.train.lambda_spec * l_ffl
+            total_loss = (
+                l1_spatial
+                + self.cfg.train.lambda_grad * l_grad
+                + self.cfg.train.lambda_spec * l_ffl
+            )
 
             # Neuromorphic metabolic regularizer
             if spike_rate_metrics and "mean_spike_rate" in spike_rate_metrics:
@@ -147,8 +157,9 @@ class CompositeLoss(nn.Module):
             loss_dict["loss_ffl"] = l_ffl.item()
 
         else:
-            raise ValueError(f"Unknown architecture for loss calculation: {arch}")
+            raise ValueError(
+                f"Unknown architecture for loss calculation: {arch}"
+            )
 
         loss_dict["total_loss"] = total_loss.item()
         return total_loss, loss_dict
-

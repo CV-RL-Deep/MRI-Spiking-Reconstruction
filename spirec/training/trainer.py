@@ -89,7 +89,10 @@ class Trainer:
             with autocast(
                 enabled=self.cfg.train.use_amp and self.device.type == "cuda"
             ):
-                if self.cfg.model.architecture == "spike_unet":
+                if self.cfg.model.architecture in (
+                    "spike_unet",
+                    "spike_alif_unet",
+                ) or self.cfg.model.architecture.startswith("spike_"):
                     pred_slice, snn_metrics = self.model(ctx_stack)
                 else:
                     pred_slice = self.model(ctx_stack)
@@ -155,7 +158,10 @@ class Trainer:
             with autocast(
                 enabled=self.cfg.train.use_amp and self.device.type == "cuda"
             ):
-                if self.cfg.model.architecture == "spike_unet":
+                if self.cfg.model.architecture in (
+                    "spike_unet",
+                    "spike_alif_unet",
+                ) or self.cfg.model.architecture.startswith("spike_"):
                     pred_slice, snn_metrics = self.model(ctx_stack)
                 else:
                     pred_slice = self.model(ctx_stack)
