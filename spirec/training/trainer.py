@@ -1,6 +1,6 @@
 import os
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -48,6 +48,7 @@ class Trainer:
             enabled=config.train.use_amp and self.device.type == "cuda"
         )
 
+        os.makedirs(config.data.results_dir, exist_ok=True)
         self.telemetry = MemoryTelemetry(
             os.path.join(config.data.results_dir, "train_telemetry.csv")
         )

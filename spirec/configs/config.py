@@ -15,8 +15,10 @@ class SpikingConfig:
     t_sim: int = 4  # Micro-temporal simulation steps per slice
     v_threshold: float = 1.0  # Membrane firing threshold
     initial_beta: float = 0.8  # Initial membrane potential decay constant
-    initial_rho: float = 0.85
-    initial_gamma: float = 0.5
+    initial_rho: float = 0.85  # Initial threshold decay factor for ALIF
+    initial_gamma: float = (
+        0.5  # Coupling coefficient for dynamic threshold adaptation
+    )
     surrogate_alpha: float = (
         2.0  # Steepness parameter for ArcTan surrogate gradient
     )

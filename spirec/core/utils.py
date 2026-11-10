@@ -121,6 +121,12 @@ class MemoryTelemetry:
 
     def __init__(self, log_path: str = "memory_telemetry.csv"):
         self.log_path = log_path
+
+        # Ensure parent directory exists before creating log file
+        log_dir = os.path.dirname(self.log_path)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+
         if not os.path.exists(self.log_path):
             with open(self.log_path, "w", newline="") as stream:
                 writer = csv.writer(stream)

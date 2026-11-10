@@ -28,7 +28,7 @@ class SpikeALIFARUNet(nn.Module):
         self.t_sim = t_sim
         self.base_filters = base_filters
 
-        # Analog context projection
+        # Analog current drive
         self.input_encoder = nn.Conv2d(
             in_channels, base_filters, kernel_size=3, padding=1, bias=False
         )
@@ -125,7 +125,7 @@ class SpikeALIFARUNet(nn.Module):
         )
         s_dec1, _, _ = self.dec1(torch.cat([up1_seq, s_e1], dim=2))
 
-        # Analog Readout
+        # Leaky Analog Voltage Integration
         dec1_flat = s_dec1.reshape(t * b, s_dec1.shape[2], h, w)
         currents = self.readout_conv(dec1_flat).reshape(t, b, 1, h, w)
 

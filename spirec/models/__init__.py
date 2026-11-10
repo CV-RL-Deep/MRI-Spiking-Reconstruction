@@ -8,8 +8,8 @@ from spirec.models.losses import (
     GradientSharpnessLoss,
     SpectralLoss,
 )
-from spirec.models.spike_unet import SpikeARUNet
 from spirec.models.alif_unet import SpikeALIFARUNet
+from spirec.models.spike_unet import SpikeARUNet
 
 
 class ModelBuilder:

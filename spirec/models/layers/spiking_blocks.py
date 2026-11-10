@@ -104,8 +104,8 @@ class SpikingConvUnitALIF(nn.Module):
     def forward(
         self,
         s_seq: torch.Tensor,
-        u_init: Optional[torch.Tensor] = None,
-        w_init: Optional[torch.Tensor] = None,
+        u_init: torch.Tensor = None,
+        w_init: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         t, b, c, h, w = s_seq.shape
         s_flat = s_seq.reshape(t * b, c, h, w)
@@ -119,7 +119,7 @@ class SpikingConvUnitALIF(nn.Module):
 class MembraneShortcutResBlock(nn.Module):
     """Membrane-Shortcut Residual Block (MS-ResBlock).
 
-    Eliminates integer spike addition (Sin + Sout in {0, 1, 2}).
+    Eliminates integer spike addition bug (S_in + S_out in {0, 1, 2}).
     Shortcut summation occurs in the continuous synaptic current space.
     """
 
@@ -149,7 +149,7 @@ class MembraneShortcutResBlock(nn.Module):
         s1_flat = s1_seq.reshape(t * b, c, h, w)
         i2_flat = self.bn2(self.conv2(s1_flat))
 
-        # Inject residual shortcut current from identity spikes
+        # Sum continuous currents prior to neuronal threshold integration
         i_total = (i2_flat + s_flat).reshape(t, b, c, h, w)
         s_out, _, _ = self.alif2(i_total)
         return s_out

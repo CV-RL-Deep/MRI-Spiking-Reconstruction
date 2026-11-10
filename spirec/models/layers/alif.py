@@ -14,10 +14,10 @@ class ALIF(nn.Module):
     Operates on 5D tensors: (T_sim, Batch, Channels, Height, Width).
     Implements dynamic threshold accommodation:
         U[\tau] = \beta U[\tau-1] + I[\tau]
+        V_{th}[\tau] = V_0 + \gamma w[\tau]
         S[\tau] = \Theta(U[\tau] - V_{th}[\tau])
         U[\tau] \leftarrow U[\tau] - S[\tau] V_{th}[\tau]
-        w[\tau] = \rho w[\tau-1] + S[\tau]
-        V_{th}[\tau] = V_0 + \gamma w[\tau]
+        w[\tau] = \rho w[\tau-1] + S[\tau-1]
     """
 
     def __init__(
@@ -86,7 +86,7 @@ class ALIF(nn.Module):
             v_th = self.v_0 + gamma * w_adapt
             s = surrogate_atan(u - v_th, alpha=self.surrogate_alpha)
 
-            # Soft reset-by-subtraction preserving residual polarization
+            # Soft reset-by-subtraction preserving residual hyperpolarization
             u = u - s * v_th
             w_adapt = rho * w_adapt + s
             spikes.append(s)
