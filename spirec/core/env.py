@@ -38,7 +38,8 @@ class EnvironmentConfig:
             torch.backends.cudnn.benchmark = True
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
-            os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+            # Remove expandable_segments to prevent allocator unmap corruption in multi-threaded multi-GPU setups
+            os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 
 ENV = EnvironmentConfig()

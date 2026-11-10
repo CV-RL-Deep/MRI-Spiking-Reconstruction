@@ -148,8 +148,9 @@ class GeometryOps:
         ]
 
         align_corners = False if mode in ["bilinear", "bicubic"] else None
+        # Ensure memory continuity to prevent CUDA kernel invalid addressing on strided views
         restored = F.interpolate(
-            cropped,
+            cropped.contiguous(),
             size=(orig_h, orig_w),
             mode=mode,
             align_corners=align_corners,

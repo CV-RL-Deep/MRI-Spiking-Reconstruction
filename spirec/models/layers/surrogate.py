@@ -1,6 +1,8 @@
 import math
 import torch
 
+from torch.cuda.amp import custom_bwd, custom_fwd
+
 
 class ArcTanSurrogate(torch.autograd.Function):
     """
@@ -12,16 +14,22 @@ class ArcTanSurrogate(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, u_minus_vth: torch.Tensor, alpha: float = 2.0) -> torch.Tensor:
+    @custom_fwd
+    def forward(
+        ctx, u_minus_vth: torch.Tensor, alpha: float = 2.0
+    ) -> torch.Tensor:
         ctx.save_for_backward(u_minus_vth)
         ctx.alpha = alpha
         return (u_minus_vth >= 0.0).to(u_minus_vth.dtype)
 
     @staticmethod
+    @custom_bwd
     def backward(ctx, grad_output: torch.Tensor):
         (u_minus_vth,) = ctx.saved_tensors
         alpha = ctx.alpha
-        grad_u = grad_output * (alpha / (math.pi * (1.0 + (alpha * u_minus_vth) ** 2)))
+        grad_u = grad_output * (
+            alpha / (math.pi * (1.0 + (alpha * u_minus_vth) ** 2))
+        )
         return grad_u, None
 
 
@@ -35,7 +43,9 @@ class FastSigmoidSurrogate(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, u_minus_vth: torch.Tensor, alpha: float = 3.0) -> torch.Tensor:
+    def forward(
+        ctx, u_minus_vth: torch.Tensor, alpha: float = 3.0
+    ) -> torch.Tensor:
         ctx.save_for_backward(u_minus_vth)
         ctx.alpha = alpha
         return (u_minus_vth >= 0.0).to(u_minus_vth.dtype)
@@ -54,4 +64,3 @@ def surrogate_atan(x: torch.Tensor, alpha: float = 2.0) -> torch.Tensor:
 
 def surrogate_fast_sigmoid(x: torch.Tensor, alpha: float = 3.0) -> torch.Tensor:
     return FastSigmoidSurrogate.apply(x, alpha)
-
